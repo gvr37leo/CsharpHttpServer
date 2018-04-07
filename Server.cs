@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Net;
 using System.Threading;
+using System.Text.RegularExpressions;
 
 namespace HttpServer {
     class Server {
@@ -30,55 +31,47 @@ namespace HttpServer {
 
         }
 
-        public void listen(RequestType requesType,string path, Action<List<string>, HttpListenerContext> callback) {
-            PathfinderDictionary[requesType].register(path, (args) => {
-                callback(args,context);
+        public void listen(RequestType requesType,Regex regex, Action<Match, HttpListenerContext> callback) {
+            PathfinderDictionary[requesType].register(regex, (match) => {
+                callback(match,context);
             });
         }
 
-        public void start() {
-            
-            listener.Start();
-            while (true) {
-                context = listener.GetContext();
-                context.Response.StatusCode = 200;
-                context.Request.Url.AbsolutePath.Remove(0, 1);
-                string filepath = $"{Directory.GetParent(Directory.GetCurrentDirectory()).Parent.FullName}/public{context.Request.Url.AbsolutePath}";
+        public void serveStatic(string folder) {
+            listen(RequestType.get, new Regex($"^/(.+)"), (match, context) => {
+                string filepath = $"{Directory.GetParent(Directory.GetCurrentDirectory()).Parent.FullName}{folder}/{match.Groups[1].Value}";
                 if (File.Exists(filepath)) {
                     string file = File.ReadAllText(filepath);
                     byte[] bytes = Encoding.ASCII.GetBytes(file);
                     context.Response.OutputStream.Write(bytes, 0, bytes.Length);
-                } else {
-                    RequestType requestType = 0;
-                    switch (context.Request.HttpMethod) {
-                        case "GET":
-                            requestType = RequestType.get;
-                            break;
-                        case "POST":
-                            requestType = RequestType.post;
-                            break;
-                        case "PUT":
-                            requestType = RequestType.put;
-                            break;
-                        case "DELETE":
-                            requestType = RequestType.delete;
-                            break;
-                    }
-                    PathfinderDictionary[requestType].trigger(context.Request.Url.AbsolutePath.Remove(0, 1));
                 }
+            });
+        }
+
+        public void start() {
+            listener.Start();
+            while (true) {
+                context = listener.GetContext();
+                
+                RequestType requestType = 0;
+                switch (context.Request.HttpMethod) {
+                    case "GET":
+                        requestType = RequestType.get;
+                        break;
+                    case "POST":
+                        requestType = RequestType.post;
+                        break;
+                    case "PUT":
+                        requestType = RequestType.put;
+                        break;
+                    case "DELETE":
+                        requestType = RequestType.delete;
+                        break;
+                }
+                PathfinderDictionary[requestType].trigger(context.Request.Url.AbsolutePath);
                 context.Response.Close();
             }
         }
-    }
-
-    class Request {
-        public Dictionary<string,string> headers;
-        public RequestType requestType;
-        public string body;
-    }
-
-    class Response {
-        HttpListenerContext ctxt;
     }
 
     enum RequestType {get,post,put,delete}

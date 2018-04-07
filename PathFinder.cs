@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace HttpServer {
@@ -15,41 +16,26 @@ namespace HttpServer {
         }
 
         public void trigger(string path) {
-            string[] fragments = path.Split('/');
-
-            foreach (var pathRegistration in pathRegistrations) {
-                if (pathRegistration.pathFragments.Count != fragments.Length) {
-                    continue;
+            foreach (PathRegistration pathRegistration in pathRegistrations) {
+                Match match = pathRegistration.regex.Match(path);
+                if (match.Success) {
+                    pathRegistration.callback(match);
+                    return;
                 }
-
-                List<string> hitVariables = new List<string>();
-                for (var i = 0; i < pathRegistration.pathFragments.Count; i++) {
-                    var registeredFragment = pathRegistration.pathFragments[i];
-                    if (registeredFragment[0] == ':') {
-                        hitVariables.Add(fragments[i]);
-                    } else if (registeredFragment != fragments[i]) {
-                        goto continueOuterloop;
-                    } else {
-                        continue;
-                    }
-                }
-                pathRegistration.callback(hitVariables);
-                break;
-                continueOuterloop:;
             }
         }
 
-        public void register(string path, Action<List<string>> callback){
-            pathRegistrations.Add(new PathRegistration(path.Split('/').ToList(), callback));
+        public void register(Regex regex, Action<Match> callback){
+            pathRegistrations.Add(new PathRegistration(regex, callback));
         }
 
         class PathRegistration {
-            public Action<List<string>> callback;
+            public Action<Match> callback;
 
-            public List<string> pathFragments = new List<string>();
+            public Regex regex;
 
-            public PathRegistration(List<string> path, Action<List<string>> callback) {
-                this.pathFragments = path;
+            public PathRegistration(Regex regex, Action<Match> callback) {
+                this.regex = regex;
                 this.callback = callback;
             }
         }

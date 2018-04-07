@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace HttpServer {
@@ -9,20 +11,16 @@ namespace HttpServer {
         static void Main(string[] args) {
 
             Server server = new Server(8000);
-            server.listen(RequestType.get, ":object", (paramargs, context) => {
-                byte[] bytes = Encoding.ASCII.GetBytes($"{paramargs[0]}");
-                context.Response.OutputStream.Write(bytes, 0, bytes.Length);
+
+            server.listen(RequestType.get, new Regex("^/api/(.+)/(.+)$"), (match,context) => {
+                
             });
 
-            server.listen(RequestType.get, ":object/:id", (paramargs, context) => {
-                byte[] bytes = Encoding.ASCII.GetBytes($"{paramargs[0]}:{paramargs[1]}");
-                context.Response.OutputStream.Write(bytes, 0, bytes.Length);
+            server.listen(RequestType.get, new Regex("^/api/(.+)$"), (match, context) => {
+
             });
 
-            server.listen(RequestType.get, "api/:object/:id", (paramargs, context) => {
-                byte[] bytes = Encoding.ASCII.GetBytes($"api:{paramargs[0]}:{paramargs[1]}");
-                context.Response.OutputStream.Write(bytes, 0, bytes.Length);
-            });
+            server.serveStatic("./public");
 
 
             server.start();//enters infinite loop
